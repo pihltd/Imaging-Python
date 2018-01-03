@@ -1,82 +1,195 @@
 #! /usr/bin/env python
 
-import requests
-import argparse
-import pprint
+import tciaStuff as tcia
+import gdcStuff as gdc
+from requests.exceptions import HTTPError
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, Event, State
+import plotly.graph_objs as go
+import pprint
 
 
-def getCollections(baseURL,  resource,  key,  verbose):
+def getCollections(tier,  resource,  key,  verbose):
     collections = []
     endpoint = "/query/getCollectionValues"
     query = {"format" : "json"}
-    collection_data = runQuery(baseURL,  resource,  endpoint,  query,  key,  verbose)
+    collection_data = tcia.runQuery(tier, resource,  endpoint,  query,  key,  verbose)
     for data in collection_data:
         collections.append(data['Collection'])
     return collections
     
-def runQuery (baseURL,  resource,  queryEndpoint,  queryParams, key ,  verbose):
-    #<BaseURL><Resource><QueryEndpoint>?<QueryParameters><Format> 
-    url = baseURL+resource+queryEndpoint
-    headers = {"api_key":key}
+def parseData(data,  key):
+    counter = {}
+    for item in data:
+        if key in item:
+            if item[key] in counter:
+                counter[item[key]] = counter[item[key]] + 1
+            else:
+                counter[item[key]] = 1
+                
+    return counter
+#####################################      
+#                      Main application section                            #
+#####################################
 
-    data = requests.get(url,  headers = headers,  params = queryParams)
-    vPrint(verbose,  data.url)
-    vPrint(verbose,  data.status_code)
-    return data.json()
-
-def vPrint(doit, message):
-    if doit:
-        pprint.pprint(message)
-        
-#Main application section
-tcia_tiers = {"test": "https://services-test.cancerimagingarchive.net/services/v3",  "prod": "https://services.cancerimagingarchive.net/services/v3"}
 resource = "/TCIA"
 key = "15cda45b-397d-4439-8a37-cdb4d8e5e4ab"
-tier = tcia_tiers["prod"]
 
-collections = getCollections(tier, resource,  key,  False)
-#for collection in collections:
-#    print(collection)
+try:
+    collections = getCollections("prod", resource,  key,  False)
+except HTTPError as exception:
+    pprint.pprint(exception)
+except ValueError as exception:
+    pprint.pprint(exception)
 app = dash.Dash()
+#https://codepen.io/chriddyp/pen/bWLwgP
+app.css.append_css({
+    "external_url": "https://codepen.io/chriddyp/pen/bWLwgP.css"
+})
 
 app.layout = html.Div([
     html.Div([
-        html.H3("Cohort"), 
-        dcc.Dropdown(id='cohort_dropdown',  options = [{'label' : collection,  'value' : collection} for collection in collections])
-    ]), 
+        html.Div([
+            html.H3("Cohort"), 
+            dcc.Dropdown(id='cohort_dropdown',  options = [{'label' : collection,  'value' : collection} for collection in collections])
+        ],  className = "three columns"), 
+        html.Div([
+            html.H3("Update"), 
+            html.Button(['Update Graphs'], 
+            id = 'updatebutton')
+        ],  className = 'one column')
+    ], className = 'row'), 
     html.Div([
-        html.H3("Modalities"), 
-        dcc.Checklist(id='mode_checklist')
-    ])
+        html.Div([
+            html.H3("Gender"),
+            dcc.Graph(id='gender_graph')
+        ],  className = 'six columns'), 
+        html.Div([
+            html.H3("Modalities"), 
+            dcc.Graph(id = 'modality_graph')
+        ],  className = 'six columns')
+    ],  className = 'row'), 
+    html.Div([
+        html.Div([
+            html.H3("Body Parts"), 
+            dcc.Graph(id = "body_graph")
+        ],  className = 'six columns'), 
+        html.Div([
+            html.H3("Protocols"), 
+            dcc.Graph(id = "series_graph")
+        ],  className = 'six columns')
+    ],  className = 'row') , 
+    html.Div([
+        html.Div([
+            html.H3("TCGA Data"), 
+            dcc.Graph(id= "tcga_graph")
+        ],  className = 'six columns')
+    ],  className = 'row')
 ])
+
 @app.callback(
-    dash.dependencies.Output('mode_checklist',  'options'), 
-    [dash.delpendencies.Input('cohort_dropdown',  'value')]
+    Output('gender_graph', 'figure'), 
+    state = [State('cohort_dropdown',  'value')], 
+    events = [Event('updatebutton',  'click')]
 )
-def getModalities(cohort):
-    query = {"Collection" : cohort,  "format" : "json"}
-    endpoint = "/query/getModalityValues"
-    data = runQuery(tier,  resource,  endpoint, query,  key,  False )
-    options = []
-    for item in data:
-        options.append({"label" : item,  "value" : item})
-    return options
-    #collection = "TCGA-GBM"
-    #modequery = {"Collection" : collection,  "format" :  "json"}
-    #endpoint = "/query/getModalityValues"
-    #data = runQuery(tcia_tiers[args.tier],  resource,  endpoint,  modequery,  key,  args.verbose)
-    #pprint.pprint(data)
+def updateGenderGraph(selected_cohort):
+    query = {"Collection" : selected_cohort}
+    try:
+        patients = tcia.runQuery("prod",  resource,  '/query/getPatient', query,  key,  False )
+    except HTTPError as exception:
+        pprint.pprint(exception)
+    except ValueError as exception:
+        pprint.pprint(exception)
+    pprint.pprint(patients)  
+    counter = parseData(patients,  'PatientSex')
+    figure = {'data' : [go.Pie(labels=list(counter.keys()),  values=list(counter.values()))], 
+                    'layout' : {'title' : selected_cohort}}
+    return figure
     
+@app.callback(
+    Output('modality_graph', 'figure'), 
+    state = [State('cohort_dropdown',  'value')], 
+    events = [Event('updatebutton',  'click')]
+)
+def updateModalityGraph(selected_cohort):
+    counter = {}
+    query = {"Collection" : selected_cohort}
+    try:
+        modalities = tcia.runQuery("prod", resource,  '/query/getModalityValues',  query,  key,  False)
+    except HTTPError as exception:
+        pprint.pprint(exception)
+    except ValueError as exception:
+        pprint.pprint(exception)
+    pprint.pprint(modalities)
+    counter = parseData(modalities,  'Modality')
+    figure = {'data' : [go.Pie(labels = list(counter.keys()),  values = list(counter.values()))], 
+                    'layout' : {'title' : selected_cohort}}
+    return figure
+
+@app.callback(
+    Output('body_graph', 'figure'), 
+    state = [State('cohort_dropdown',  'value')], 
+    events = [Event('updatebutton',  'click')]
+)
+def updatBodyGraph(selected_cohort):
+    counter = {}
+    query = {"Collection" : selected_cohort}
+    try:
+        parts = tcia.runQuery("prod", resource,  '/query/getBodyPartValues',  query,  key,  False)
+    except HTTPError as exception:
+        pprint.pprint(exception)
+    except ValueError as exception:
+        pprint.pprint(exception)
+    pprint.pprint(parts)
+    counter = parseData(parts,  'BodyPartExamined')
+    figure = {'data' : [go.Pie(labels = list(counter.keys()),  values = list(counter.values()))], 
+                    'layout' : {'title' : selected_cohort}}
+    return figure
+    
+@app.callback(
+    Output('series_graph', 'figure'), 
+    state = [State('cohort_dropdown',  'value')], 
+    events = [Event('updatebutton',  'click')]
+)   
+def updateSeriesGraph(selected_cohort):
+    counter = {}
+    query = {"Collection" : selected_cohort}
+    try:
+        series = tcia.runQuery("prod", resource,  '/query/getSeries',  query,  key,  False)
+    except HTTPError as exception:
+        pprint.pprint(exception)
+    except ValueError as exception:
+        pprint.pprint(exception)
+    counter = parseData(series,  'ProtocolName')
+    figure = {'data' : [go.Pie(labels = list(counter.keys()),  values = list(counter.values()))], 
+                    'layout' : {'title' : selected_cohort}}
+    return figure
+
+@app.callback(
+    Output('tcga_graph', 'figure'), 
+    state = [State('cohort_dropdown',  'value')], 
+    events = [Event('updatebutton',  'click')]
+) 
+def updateTCGAGraph(selected_cohort):
+    if "TCGA" in selected_cohort:
+        counter = {}
+        query = ("/%s?expand=summary,summary.experimental_strategies") % (selected_cohort)
+        try:
+            data = gdc.runProjectQuery("projects",  query,  False)
+        except HTTPError as exception:
+            pprint.pprint(exception)
+        except ValueError as exception:
+            pprint.pprint(exception)
+    strategies = data['data']['summary']['experimental_strategies']
+    for strategy in strategies:
+        counter[strategy['experimental_strategy']] = strategy['case_count']
+        
+    figure = {'data' : [go.Pie(labels = list(counter.keys()),  values = list(counter.values()))], 
+                    'layout' : {'title' : selected_cohort}}
+    return figure
+    
+
 if __name__ == "__main__":
     app.run_server(debug=True)
-    #parser = argparse.ArgumentParser()
-    #parser.add_argument("-v", "--verbose", action = "store_true", help = 'Enable verbose feedback.')
-    #parser.add_argument("-t",  "--tier",  choices=["test", "prod"],  help = "API tier, test or prod")
-    
-    #args = parser.parse_args()
-    
-    #main(args)
