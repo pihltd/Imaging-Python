@@ -9,12 +9,19 @@ def vPrint(doit, message):
         pprint.pprint(message)
 
 def runEntrezGetQuery (service,  query,  key,  verbose):
+    
+    #https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.chapter2_table1
     baseURL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
     services = {
     "search" : "esearch.fcgi?", 
     "summary" : "esummary.fcgi?", 
     "fetch" : "efetch.fcgi?", 
-    "link" : "elink.fcgi?"
+    "link" : "elink.fcgi?", 
+    "info" : "einfo.fcgi?", 
+    "post" : "epost.fcgi?", 
+    "query" : "egquery.fcgi?", 
+    "spell" : "espell.fcgi?", 
+    "citation" : "ecitmatch.cgi?"
     }
     
     #make sure there is a key provided
