@@ -53,3 +53,17 @@ def runEntrezGetQuery (service,  query,  key,  verbose):
                 results.raise_for_status()
     else:
         raise ValueError('Query is not a python dictionary')
+        
+    def getdbGaPDatabases(key,  verbose):
+        if key is None:
+            raise ValueError('No API Key provided')
+        query = {}
+        dblist = runEntrezGetQuery("info",  query,  key,  verbose)
+        return dblist
+    
+    def getDBFields(db,  key,  verbose):
+        if key is None:
+            raise ValueError('No API Key provided')
+        query = {"db" : db}
+        fieldlist = runEntrezGetQuery("info",  query,  key,  verbose)
+        return fieldlist

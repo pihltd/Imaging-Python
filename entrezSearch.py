@@ -43,15 +43,26 @@ def main(args):
             print(db)
             
         #Now list the fields in the database
-        dblist = ["sra"]
+        #dblist = ["sra"]
+        f = open("dbgap_db_links.txt",  "w")
         for db in dblist:
             query = {"db" : db}
             listfield = estuff.runEntrezGetQuery("info",  query,  api_key,  args.verbose)
             estuff.vPrint(args.verbose,  listfield)
             desc = listfield['einforesult']['dbinfo']['description']
             fieldlist = listfield['einforesult']['dbinfo']['fieldlist']
+            linklist = listfield['einforesult']['dbinfo']['linklist']
+            print("Database\tField Name\tFullName\tDescription")
+            f.write("Database\tField Name\tFullName\tDescription\n")
             for field in fieldlist:
                 print(("%s\t%s\t%s\t%s") % (desc,  field['name'],  field['fullname'],  field['description']))
+                f.write(("%s\t%s\t%s\t%s\n") % (desc,  field['name'],  field['fullname'],  field['description']))
+            print("Database\tLink Database\tLink Name\tLink Description")
+            f.write("Database\tLink Database\tLink Name\tLink Description\n")
+            for link in linklist:
+                print(("%s\t%s\t%s\t%s") % (desc,  link['dbto'],  link['name'],  link['description']))
+                f.write((("%s\t%s\t%s\t%s\n") % (desc,  link['dbto'],  link['name'],  link['description'])))
+        f.close()
 
        # query = {"db" : "gap", "term" : "1[s_discriminator] AND CIDR"}
         #rdata = estuff.runEntrezGetQuery("whack",  query,  api_key,  args.verbose)
