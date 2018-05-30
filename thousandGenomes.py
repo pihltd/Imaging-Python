@@ -4,29 +4,34 @@ import entrezStuff as entrez
 import pprint
 import argparse
 import xml.etree.ElementTree as et
+import requests
 
 
 def newSRASearch(query):
 	baseURL = "https://www.ncbi.nlm.nih.gov/Traces/sdl/1/retrieve?"
 
-def parseFetchXMLForRunIDs(xmldoc, verbose):
+def parseFetchXMLForRunIDs(xmldoc, idlist, verbose):
 	
 	if verbose:
 		pprint.pprint(xmldoc)
 	tree = et.fromstring(xmldoc)
-	#for node in tree.iter():
-	#	print node.tag, node.text
+	for idnode in tree.findall('.//EXPERIMENT_PACKAGE/RUN_SET/RUN/IDENTIFIERS/PRIMARY_ID'):
+		if verbose:
+			print ("Node value %s\tNode value:\t%s" % (idnode.tag, idnode.text))
+		idlist.append(idnode.text)
 	
-	idlist = []
-	#for idnode in tree.findall("EXPERIMENT_PACKAGE_SET/EXPERIMENT_PACKAGE/RUN_SET/RUN/IDENTIFIERS/PRIMARY_ID"):
-	for idnode in tree.iter():
-		#print( "Node value %s" % idnode.txt)
-		if idnode.tag == 'PRIMARY_ID':
-			idlist.append(idnode.text)
-		
-	return idlist
-	
-	
+def sddpQuery(query, endpoint, verbose):
+	validendpoints = ['retrieve', 'locality']
+	if endpoint not in validendpoints:
+		print (("%s is not a valid SDDP endpoint") % endpoint)
+	baseURL = "https://www.ncbi.nlm.nih.gov/Traces/sdl/1/"
+	url = baseURL + endpoint
+	data = requests.get(url,  params=query)
+	if verbose:
+		pprint.pprint(data.url)
+		pprint.pprint(data.status_code)
+	return data.json()
+    
 	
 def main(args):
 	#Step 1 - Do a search for 1000 Genomes
@@ -35,24 +40,39 @@ def main(args):
 	query = { 'db' : 'sra','term' : '1000 Genomes', 'retmode' : 'json'}
 	thougenomes = entrez.runEntrezGetQuery(service, query, api_key, args.verbose)
 	idlist = thougenomes['esearchresult']['idlist']
+	
+	#Use the returned IDs to query SRA for the associated information
+	# The "fetch" routine only returns XML, not JSON.
 	if args.test:
 		idlist = ['4963657', '4961977']
+	
+	srrlist = []
 	for id in idlist:
 		print(id)
 		service = 'fetch'
 		query = {'db' : 'sra', 'id' : id}
 		fetchres = entrez.runEntrezGetQuery(service, query, api_key, args.verbose)
-		#pprint.pprint(fetchres)
-		srrlist = parseFetchXMLForRunIDs(fetchres, args.verbose)
+		
+		#Parse the returned XML to get the Run identifiers
+		parseFetchXMLForRunIDs(fetchres, srrlist, args.verbose)
+		
+	if args.verbose:
 		for srr in srrlist:
 			print(srr)
+			
+	#Query the SDDP Location endpoint for info on each of the run identifiers
+	if args.test:
+		srrlist = ['SRR6487745', 'SRR6486455']
 		
-	
-	#Parse out the IDs?
-	
-	#Send each ID to fetch?
-	#https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?id=4963657&api_key=c33b6f48dd5fd9feb3dbfcdc282f29719b09&db=sra&retmode=json
-	#SRR number in <Experiment_Package_Set><Experimient_package><Run_set><Run><Identifiers><Primary_ID>
+	for srr in srrlist:
+		endpoint = 'locality'
+		query = {"acc" : srr, 'type' : 'sra_files'}
+		jsondata = sddpQuery(query, endpoint, args.verbose)
+		for filedata in jsondata:
+			for seqfile in filedata['files']:
+				filelocation = seqfile['locality'][0]['service']
+				filetype = seqfile['type']
+				print (("ID:\t%s\tLocation:\t%s\tType:\t%s\n") % (srr,filelocation,filetype))		
 	
 if __name__ == "__main__":
 	
