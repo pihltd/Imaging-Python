@@ -44,9 +44,12 @@ def runEntrezGetQuery (service,  query,  key,  verbose):
             vPrint(verbose,  results.status_code)
             
             if results.status_code == requests.codes.ok:
+				#Fetch only returns XML, not JSON so return text
                 #If there was no error, return a json object if json was requested, otherwise return text
-                if query['retmode'] == 'json':
-                    return results.json()
+                if service == 'fetch':
+					return results.text
+                elif query['retmode'] == 'json':
+						return results.json()
                 else:
                     return results.text
             else:

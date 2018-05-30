@@ -6,9 +6,10 @@ from requests.exceptions import HTTPError
 import argparse
 import pprint
 import sys
+#import xmltodict
 
 def main (args):
-    query = {"id" : args.bioproject}
+    query = {"id" : args.bioproject, "dbfrom" : "bioproject",  "db" : "biosample",  "linkname" : "bioproject_biosample"}
     try:
         results = entrez.runEntrezGetQuery("link",  query,  args.apikey,  args.verbose)
     except ValueError as exception:
@@ -22,7 +23,7 @@ def main (args):
     print(len(linkcount))
     
     #This creates a server list
-    query = {"id" : args.bioproject, "cmd" : "neighbor_history"}
+    query = {"id" : args.bioproject, "cmd" : "neighbor_history",  "dbfrom" : "bioproject",  "db" : "biosample",  "linkname" : "bioproject_biosample"}
     try:
         histres = entrez.runEntrezGetQuery("link",  query,  args.apikey,  args.verbose)
     
@@ -35,10 +36,11 @@ def main (args):
     entrez.vPrint(args.verbose,  histres)
     webenv = histres['linksets'][0]['webenv']
     querykey = histres['linksets'][0]['linksetdbhistories'][0]['querykey']
-    query = {"query_key" : querykey,  "WebEnv" :  webenv,  "db" : "biosample"}
+    query = {"query_key" : querykey,  "WebEnv" :  webenv,  "db" : "biosample",  "retmode" : "xml"}
     
     try:
         newres = entrez.runEntrezGetQuery("fetch",  query,  args.apikey,  args.verbose)
+       # jsonnewres = xmltodict.parse(newres)
         entrez.vPrint(args.verbose,  newres)
     except ValueError as exception:
         pprint.pprint(exception)
