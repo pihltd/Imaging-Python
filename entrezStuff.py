@@ -23,6 +23,44 @@ def runEntrezGetQuery (service,  query,  key,  verbose):
     "spell" : "espell.fcgi?", 
     "citation" : "ecitmatch.cgi?"
     }
+    databases = [
+    "bioproject",
+    "biosample",
+    "biosystems",
+    "books",
+    "cdd",
+    "gap",
+    "dbvar",
+    "epigenomics",
+    "nucest",
+    "gene",
+    "genome",
+    "gds",
+    "geoprofiles",
+    "nucgss",
+    "homologene",
+    "mesh",
+    "toolkit"
+    "ncbisearch",
+    "nlmcatalog",
+    "nuccore",
+    "omia",
+    "popset",
+    "probe",
+    "protein",
+    "proteinclusters",
+    "pcassay",
+    "pccompound",
+    "pcsubstance",
+    "pubmed",
+    "pmc",
+    "snp",
+    "sra",
+    "structure",
+    "taxonomy",
+    "unigene",
+    "unists"
+    ]
     
     #make sure there is a key provided
     if key is None:
@@ -31,6 +69,11 @@ def runEntrezGetQuery (service,  query,  key,  verbose):
     #make sure that a valid Entrez service is requested
     if service not in services:
         raise ValueError('Incorrect service requested')
+        
+    #make sure a valid database is selected, if one is used
+    if query['db'] is not None:
+		if query['db'] not in databases:
+			raise ValueError ('Incorrect database requested')
         
     #Query has to be provided as a python dictionary
     if isinstance(query,  dict):
@@ -57,16 +100,36 @@ def runEntrezGetQuery (service,  query,  key,  verbose):
     else:
         raise ValueError('Query is not a python dictionary')
         
-    def getdbGaPDatabases(key,  verbose):
-        if key is None:
-            raise ValueError('No API Key provided')
-        query = {}
-        dblist = runEntrezGetQuery("info",  query,  key,  verbose)
-        return dblist
+def getdbGaPDatabases(key,  verbose):
+	if key is None:
+		raise ValueError('No API Key provided')
+	query = {}
+	dblist = runEntrezGetQuery("info",  query,  key,  verbose)
+	return dblist
     
-    def getDBFields(db,  key,  verbose):
-        if key is None:
-            raise ValueError('No API Key provided')
-        query = {"db" : db}
-        fieldlist = runEntrezGetQuery("info",  query,  key,  verbose)
-        return fieldlist
+def getDBFields(db,  key,  verbose):
+	if key is None:
+		raise ValueError('No API Key provided')
+	query = {"db" : db}
+	fieldlist = runEntrezGetQuery("info",  query,  key,  verbose)
+	return fieldlist
+	
+#The following technically isn't Entrez, but close enough
+def sddpQuery(query, endpoint, verbose):
+	validendpoints = ['retrieve', 'locality']
+	if endpoint not in validendpoints:
+		raise ValueError('Incorrect endpoint requested')
+
+	baseURL = "https://www.ncbi.nlm.nih.gov/Traces/sdl/1/"
+	url = baseURL + endpoint
+	
+	#Query should be a python dictionary
+	if isinstance(query, dict):
+		data = requests.get(url,  params=query)
+		if verbose:
+			pprint.pprint(data.url)
+			pprint.pprint(data.status_code)
+			pprint.pprint(data.json())
+		return data.json()
+	else:
+		raise ValueError('Query is not a python dictionary')
