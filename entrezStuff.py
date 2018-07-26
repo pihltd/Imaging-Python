@@ -170,3 +170,37 @@ def sample2run(key,sampleid, verbose):
     for idnode in tree.findall('.//EXPERIMENT_PACKAGE/RUN_SET/RUN/IDENTIFIERS/PRIMARY_ID'):
       srrlist.append(idnode.text)
   return srrlist
+
+def text2sample(key, searchterm, verbose):
+  #Takes a text search term and returns a list of samples associated
+  samplelist = []
+  #Text query
+  textquery = {"db" : "sra", "term" : searchterm}
+  service = "search"
+  textdata = runEntrezGetQuery(service, textquery, key, verbose)
+  vPrint(verbose, textdata)
+  idlist = textdata['esearchresult']['idlist']
+
+  #Do a link between sraid and biosample
+  #for id in idlist:
+  linklist = []
+  samplequery = {"dbfrom" : "sra", "db" : "biosample", "id" : idlist}
+  service = "link"
+  linkdata = runEntrezGetQuery(service, samplequery, key, verbose)
+  vPrint(verbose, linkdata)
+  for linkset in linkdata['linksets']:
+    for linksetdbs in linkset['linksetdbs']:
+      for links in linksetdbs['links']:
+        linklist.append(links)
+
+  #Go after the sample ids
+  query = {"db" : "biosample", "id" : linklist, "retmode" : "xml"}
+  service = "fetch"
+  sampledata = runEntrezGetQuery(service, query, key, verbose)
+  vPrint(verbose, sampledata) 
+  samplelist = []
+  tree = et.fromstring(sampledata)
+  for idnode in tree.findall('.//BioSample/Ids/Id'):
+    if idnode.get('db') == 'SRA':
+      samplelist.append(idnode.text)
+  return samplelist
