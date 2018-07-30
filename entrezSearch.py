@@ -6,8 +6,9 @@ import json
 import argparse
 import pprint
 import entrezStuff as estuff
+import os
 
-api_key = "c33b6f48dd5fd9feb3dbfcdc282f29719b09"
+api_key = os.environ['NCBIAPIKEY']
 
 def runQuery(url,  query, verbose):
     

@@ -5,12 +5,12 @@ import pprint
 import argparse
 import requests
 import pprint
-
+import os
 
 def main(args):
 	#Step 1 - esearch query of dbGaP for the project name
 	service = "search"
-	api_key = "c33b6f48dd5fd9feb3dbfcdc282f29719b09"
+	api_key = os.environ['NCBIAPIKEY']
 	if args.project == '1kgenomes':
 		query = { 'db' : 'sra','term' : '1000 Genomes', 'retmode' : 'json'}
 	elif args.project == 'topmed':

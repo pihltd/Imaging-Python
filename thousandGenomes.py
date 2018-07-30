@@ -5,7 +5,7 @@ import pprint
 import argparse
 import xml.etree.ElementTree as et
 import requests
-
+import os
 
 def newSRASearch(query):
 	baseURL = "https://www.ncbi.nlm.nih.gov/Traces/sdl/1/retrieve?"
@@ -37,7 +37,7 @@ def sddpQuery(query, endpoint, verbose):
 def main(args):
 	#Step 1 - Do a text query
 	service = "search"
-	api_key = "c33b6f48dd5fd9feb3dbfcdc282f29719b09"
+	api_key = os.environ['NCBIAPIKEY']
 	if args.project == '1kgenomes':
 		query = { 'db' : 'sra','term' : '1000 Genomes', 'retmode' : 'json'}
 	elif args.project == 'topmed':

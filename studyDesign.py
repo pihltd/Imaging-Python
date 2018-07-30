@@ -3,8 +3,9 @@
 import entrezStuff as estuff
 import argparse
 import json
+import os
 
-api_key = "c33b6f48dd5fd9feb3dbfcdc282f29719b09"
+api_key = os.environ['NCBIAPIKEY']
 
 def cidrProjectIDS(verbose):
     query = {"db" : "gap",  "term" : "(cancer[DISEASE]) AND CIDR"}
