@@ -9,19 +9,19 @@ def vPrint(doit, message):
     if doit:
         pprint.pprint(message)
 
-def runEntrezGetQuery (service,  query,  key,  verbose):
+def runEntrezQuery (service,  query,  key, querytype,  verbose):
     #https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.chapter2_table1
     baseURL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
     services = {
-    "search" : "esearch.fcgi?", 
-    "summary" : "esummary.fcgi?", 
-    "fetch" : "efetch.fcgi?", 
-    "link" : "elink.fcgi?", 
-    "info" : "einfo.fcgi?", 
-    "post" : "epost.fcgi?", 
-    "query" : "egquery.fcgi?", 
-    "spell" : "espell.fcgi?", 
-    "citation" : "ecitmatch.cgi?"
+    "search" : "esearch.fcgi",
+    "summary" : "esummary.fcgi",
+    "fetch" : "efetch.fcgi",
+    "link" : "elink.fcgi",
+    "info" : "einfo.fcgi",
+    "post" : "epost.fcgi",
+    "query" : "egquery.fcgi",
+    "spell" : "espell.fcgi",
+    "citation" : "ecitmatch.cgi"
     }
     databases = [
     "bioproject",
@@ -62,6 +62,11 @@ def runEntrezGetQuery (service,  query,  key,  verbose):
     "unists"
     ]
 
+    #Quertytypes allowed
+    querytypes = ["get", "post"]
+    if querytype not in querytypes:
+      raise ValueError('Querytype must be either "get" or "post"')
+
     #make sure there is a key provided
     if key is None:
         raise ValueError('No API key provided')
@@ -82,7 +87,12 @@ def runEntrezGetQuery (service,  query,  key,  verbose):
             if 'api_key' not in query:
                 query['api_key'] = key
             #All set to run the query
-            results = requests.get(baseURL+services[service],  params = query)
+            if querytype == "get":
+              results = requests.get(baseURL+services[service]+"?",  params = query)
+            elif querytype == "post":
+              results = requests.post(baseURL+services[service], data = query)
+            else:
+              raise ValueError('Bad Query type')
             vPrint(verbose,  results.url)
             vPrint(verbose,  results.status_code)
 
