@@ -6,109 +6,109 @@ import pprint
 import xml.etree.ElementTree as et
 
 def vPrint(doit, message):
-    if doit:
-        pprint.pprint(message)
+  if doit:
+    pprint.pprint(message)
 
 def runEntrezQuery (service,  query,  key, querytype,  verbose):
-    #https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.chapter2_table1
-    baseURL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
-    services = {
-    "search" : "esearch.fcgi",
-    "summary" : "esummary.fcgi",
-    "fetch" : "efetch.fcgi",
-    "link" : "elink.fcgi",
-    "info" : "einfo.fcgi",
-    "post" : "epost.fcgi",
-    "query" : "egquery.fcgi",
-    "spell" : "espell.fcgi",
-    "citation" : "ecitmatch.cgi"
-    }
-    databases = [
-    "bioproject",
-    "biosample",
-    "biosystems",
-    "books",
-    "cdd",
-    "gap",
-    "dbvar",
-    "epigenomics",
-    "nucest",
-    "gene",
-    "genome",
-    "gds",
-    "geoprofiles",
-    "nucgss",
-    "homologene",
-    "mesh",
-    "toolkit"
-    "ncbisearch",
-    "nlmcatalog",
-    "nuccore",
-    "omia",
-    "popset",
-    "probe",
-    "protein",
-    "proteinclusters",
-    "pcassay",
-    "pccompound",
-    "pcsubstance",
-    "pubmed",
-    "pmc",
-    "snp",
-    "sra",
-    "structure",
-    "taxonomy",
-    "unigene",
-    "unists"
-    ]
+  #https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.chapter2_table1
+  baseURL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+  services = {
+  "search" : "esearch.fcgi",
+  "summary" : "esummary.fcgi",
+  "fetch" : "efetch.fcgi",
+  "link" : "elink.fcgi",
+  "info" : "einfo.fcgi",
+  "post" : "epost.fcgi",
+  "query" : "egquery.fcgi",
+  "spell" : "espell.fcgi",
+  "citation" : "ecitmatch.cgi"
+  }
+  databases = [
+  "bioproject",
+  "biosample",
+  "biosystems",
+  "books",
+  "cdd",
+  "gap",
+  "dbvar",
+  "epigenomics",
+  "nucest",
+  "gene",
+  "genome",
+  "gds",
+  "geoprofiles",
+  "nucgss",
+  "homologene",
+  "mesh",
+  "toolkit"
+  "ncbisearch",
+  "nlmcatalog",
+  "nuccore",
+  "omia",
+  "popset",
+  "probe",
+  "protein",
+  "proteinclusters",
+  "pcassay",
+  "pccompound",
+  "pcsubstance",
+  "pubmed",
+  "pmc",
+  "snp",
+  "sra",
+  "structure",
+  "taxonomy",
+  "unigene",
+  "unists"
+  ]
 
-    #Quertytypes allowed
-    querytypes = ["get", "post"]
-    if querytype not in querytypes:
-      raise ValueError('Querytype must be either "get" or "post"')
+  #Quertytypes allowed
+  querytypes = ["get", "post"]
+  if querytype not in querytypes:
+    raise ValueError('Querytype must be either "get" or "post"')
 
-    #make sure there is a key provided
-    if key is None:
-        raise ValueError('No API key provided')
+  #make sure there is a key provided
+  if key is None:
+    raise ValueError('No API key provided')
 
-    #make sure that a valid Entrez service is requested
-    if service not in services:
-        raise ValueError('Incorrect service requested')
+  #make sure that a valid Entrez service is requested
+  if service not in services:
+    raise ValueError('Incorrect service requested')
 
-    #make sure a valid database is selected, if one is used
-    if query['db'] is not None:
-		if query['db'] not in databases:
-			raise ValueError ('Incorrect database requested')
+  #make sure a valid database is selected, if one is used
+  if query['db'] is not None:
+    if query['db'] not in databases:
+      raise ValueError ('Incorrect database requested')
 
-    #Query has to be provided as a python dictionary
-    if isinstance(query,  dict):
-            if 'retmode' not in query:
-                query['retmode'] = 'json'
-            if 'api_key' not in query:
-                query['api_key'] = key
-            #All set to run the query
-            if querytype == "get":
-              results = requests.get(baseURL+services[service]+"?",  params = query)
-            elif querytype == "post":
-              results = requests.post(baseURL+services[service], data = query)
-            else:
-              raise ValueError('Bad Query type')
-            vPrint(verbose,  results.url)
-            vPrint(verbose,  results.status_code)
-
-            if results.status_code == requests.codes.ok:
-				#Fetch only returns XML, not JSON so return text
-                #If there was no error, return a json object if json was requested, otherwise return text
-                if service == 'fetch':
-					return results.text
-                elif query['retmode'] == 'json':
-						return results.json()
-                else:
-                    return results.text
-            else:
-                results.raise_for_status()
+  #Query has to be provided as a python dictionary
+  if isinstance(query,  dict):
+    if 'retmode' not in query:
+      query['retmode'] = 'json'
+    if 'api_key' not in query:
+      query['api_key'] = key
+    #All set to run the query
+    if querytype == "get":
+      results = requests.get(baseURL+services[service]+"?",  params = query)
+    elif querytype == "post":
+      results = requests.post(baseURL+services[service], data = query)
     else:
-        raise ValueError('Query is not a python dictionary')
+      raise ValueError('Bad Query type')
+    vPrint(verbose,  results.url)
+    vPrint(verbose,  results.status_code)
+
+    if results.status_code == requests.codes.ok:
+    #Fetch only returns XML, not JSON so return text
+    #If there was no error, return a json object if json was requested, otherwise return text
+      if service == 'fetch':
+        return results.text
+      elif query['retmode'] == 'json':
+        return results.json()
+      else:
+        return results.text
+    else:
+      results.raise_for_status()
+  else:
+    raise ValueError('Query is not a python dictionary')
 
 def getdbGaPDatabases(key,  verbose):
 	if key is None:
