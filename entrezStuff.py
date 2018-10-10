@@ -147,7 +147,8 @@ def sample2run(key,sampleid, verbose):
   #https://www.biosstars.org/p/53627/
   samplequery = {"db" : "biosample", "term" : sampleid}
   service = "search"
-  sampledata = runEntrezGetQuery(service, samplequery, key, verbose)
+  querytype = "get"
+  sampledata = runEntrezQuery(service, samplequery, key, querytype, verbose)
   if verbose:
     pprint.pprint(sampledata)
 
@@ -160,7 +161,7 @@ def sample2run(key,sampleid, verbose):
     #link between biosample and SRA
     query = {"dbfrom" : "biosample", "db" : "sra", "id" : id}
     service = "link"
-    sradata = runEntrezGetQuery(service, query, key, verbose)
+    sradata = runEntrezQuery(service, query, key, querytype, verbose)
     if verbose:
       pprint.pprint(sradata)
     sraidlist = sradata['linksets'][0]['linksetdbs'][0]['links']
@@ -171,7 +172,7 @@ def sample2run(key,sampleid, verbose):
   for id in sraidlist:
     sraquery = {"db" : "sra", "id" : id}
     service = "fetch"
-    rundata = runEntrezGetQuery(service, sraquery, key, verbose)
+    rundata = runEntrezQuery(service, sraquery, key, querytype, verbose)
     if verbose:
       pprint.pprint(rundata)
 
@@ -181,13 +182,18 @@ def sample2run(key,sampleid, verbose):
       srrlist.append(idnode.text)
   return srrlist
 
-def text2sample(key, searchterm, verbose):
+def text2sample(key, searchterm,verbose):
   #Takes a text search term and returns a list of samples associated
   samplelist = []
   #Text query
   textquery = {"db" : "sra", "term" : searchterm}
   service = "search"
-  textdata = runEntrezGetQuery(service, textquery, key, verbose)
+  querytype = "get"
+
+  try:
+    textdata = runEntrezQuery(service, textquery, key, querytype, verbose)
+  except HTTPError as exception:
+    pprint.pprint(exception)
   vPrint(verbose, textdata)
   idlist = textdata['esearchresult']['idlist']
 
@@ -196,7 +202,10 @@ def text2sample(key, searchterm, verbose):
   linklist = []
   samplequery = {"dbfrom" : "sra", "db" : "biosample", "id" : idlist}
   service = "link"
-  linkdata = runEntrezGetQuery(service, samplequery, key, verbose)
+  try:
+    linkdata = runEntrezQuery(service, samplequery, key, querytype, verbose)
+  except HTTPError as exception:
+    pprint.pprint(exception)
   vPrint(verbose, linkdata)
   for linkset in linkdata['linksets']:
     for linksetdbs in linkset['linksetdbs']:
@@ -206,11 +215,19 @@ def text2sample(key, searchterm, verbose):
   #Go after the sample ids
   query = {"db" : "biosample", "id" : linklist, "retmode" : "xml"}
   service = "fetch"
-  sampledata = runEntrezGetQuery(service, query, key, verbose)
-  vPrint(verbose, sampledata) 
+  try:
+    sampledata = runEntrezQuery(service, query, key, querytype, verbose)
+  except HTTPError as exception:
+    pprint.pprint(exception)
+  vPrint(verbose, sampledata)
   samplelist = []
   tree = et.fromstring(sampledata)
   for idnode in tree.findall('.//BioSample/Ids/Id'):
     if idnode.get('db') == 'SRA':
       samplelist.append(idnode.text)
   return samplelist
+
+def queryCount(service, query, key, querytype, verbose):
+  results = runEntrezQuery(service, query, key, querytype, verbose)
+  resultcount = results['esearchresult']['count']
+  return resultcount 
