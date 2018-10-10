@@ -187,6 +187,7 @@ def entrezTextQuery(key, query, testmode, verbose):
   idlist = []
   service = "search"
   querytype = "get"
+  query['retmode'] = 'json'
   querycount = queryCount(service, query, key, querytype, verbose)
   if testmode:
     querycount = "20"
@@ -206,6 +207,7 @@ def entrezLinkQuery(key, query, verbose):
   linklist = []
   service = "link"
   querytype = "get"
+  query['retmode'] = 'json'
   linkdata = runEntrezQuery(service, query, key, querytype, verbose)
   for linkset in linkdata['linksets']:
     for linsetdbs in linkset['linksetdbs']:
@@ -218,6 +220,8 @@ def entrezSampleIDQuery(key, query, verbose):
   samplelist = []
   service = "fetch"
   querytype = "get"
+  #This has to be an XML query, so force
+  query['retmode'] = 'xml'
   sampledata = runEntrezQuery(servcie, query, key, querytype, verbose)
   tree = et.fromstring(sampledata)
   for idnode in tree.findall('./BioSample/Ids/Id'):
@@ -252,6 +256,32 @@ def sraText2Sample(key, searchterm,testmode, verbose):
     query = {"db" : "biosample", "id" : idlist, "retmode" : "xml"}
     samplelist = samplelist + entrezSampleIDQuery(key, query, verbose)
   return samplelist
+
+def sraSample2Run(key, sampleid, testmode, verbose):
+  srrlist = []
+  #Get the biosample IDs
+  samplequery = {"db" : "biosample", "term" : sampleid}
+  biosampleidlist = entreezTextQuery(key, query, testmode, verbose)
+
+  #Do link between biosample and sra
+  linklist = []
+  liststart = 0
+  listchunk = 100
+  while liststart < len(biosampleidlist):
+    idlist = biosampleidlist[liststart : liststart + listchunk ]
+    query = {"dbfrom" : "biosample", "db", "sra", "id" : idlist}
+    linklist = linklist + entrezLinkQuery(key, query, verbose)
+
+  #Get the run IDs
+  srrlist = []
+  for id in linklist:
+    srrquery = {"db" : "sra", "id", id}
+    rundata = runEntrezQuery("fetch", srrquery, key, "get", verbose)
+    #Parse the XML
+    tree = et.fromstring(rundata)
+    for idnode in tree.findall('.//EXPERIENT_PACKAGE/RUN_SET/RUN/IDENTIFIERS/PRIMARY_ID'):
+      srrlist.append(idnode.text)
+  return srrlist
 
 def queryCount(service, query, key, querytype, verbose):
   results = runEntrezQuery(service, query, key, querytype, verbose)
