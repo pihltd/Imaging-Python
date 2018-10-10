@@ -182,49 +182,75 @@ def sample2run(key,sampleid, verbose):
       srrlist.append(idnode.text)
   return srrlist
 
-def text2sample(key, searchterm,verbose):
-  #Takes a text search term and returns a list of samples associated
-  samplelist = []
-  #Text query
-  textquery = {"db" : "sra", "term" : searchterm}
+def entrezTextQuery(key, query, testmode, verbose):
+  #Uses a text search to return a list of IDs
+  idlist = []
   service = "search"
   querytype = "get"
+  querycount = queryCount(service, query, key, querytype, verbose)
+  if testmode:
+    querycount = "20"
+  #Get the data in chunks
+  retstart = 0
+  retmax = 100
+  query['retstart'] = retstart
+  query['retmax'] = retmax
+  while retstart < int(querycount):
+    results = runEntrezQuery(service, query, key, querytype, verbose)
+    idlist = idlist + results['esearchresults']['idlist']
+    retstart = retstart + retmax
+  return idlist
 
-  try:
-    textdata = runEntrezQuery(service, textquery, key, querytype, verbose)
-  except HTTPError as exception:
-    pprint.pprint(exception)
-  vPrint(verbose, textdata)
-  idlist = textdata['esearchresult']['idlist']
-
-  #Do a link between sraid and biosample
-  #for id in idlist:
+def entrezLinkQuery(key, query, verbose):
+  #Takes a list of IDs and runs a link query
   linklist = []
-  samplequery = {"dbfrom" : "sra", "db" : "biosample", "id" : idlist}
   service = "link"
-  try:
-    linkdata = runEntrezQuery(service, samplequery, key, querytype, verbose)
-  except HTTPError as exception:
-    pprint.pprint(exception)
-  vPrint(verbose, linkdata)
+  querytype = "get"
+  linkdata = runEntrezQuery(service, query, key, querytype, verbose)
   for linkset in linkdata['linksets']:
-    for linksetdbs in linkset['linksetdbs']:
+    for linsetdbs in linkset['linksetdbs']:
       for links in linksetdbs['links']:
         linklist.append(links)
+  return linklist
 
-  #Go after the sample ids
-  query = {"db" : "biosample", "id" : linklist, "retmode" : "xml"}
-  service = "fetch"
-  try:
-    sampledata = runEntrezQuery(service, query, key, querytype, verbose)
-  except HTTPError as exception:
-    pprint.pprint(exception)
-  vPrint(verbose, sampledata)
+def entrezSampleIDQuery(key, query, verbose):
+  #Takes a list of IDs and returns Sample IDs
   samplelist = []
+  service = "fetch"
+  querytype = "get"
+  sampledata = runEntrezQuery(servcie, query, key, querytype, verbose)
   tree = et.fromstring(sampledata)
-  for idnode in tree.findall('.//BioSample/Ids/Id'):
+  for idnode in tree.findall('./BioSample/Ids/Id'):
     if idnode.get('db') == 'SRA':
       samplelist.append(idnode.text)
+  return samplelist
+
+def sraText2Sample(key, searchterm,testmode, verbose):
+  #Takes a text search term and returns a list of samples associated
+  samplelist = []
+  textquery = {"db" : "sra", "term" : searchterm}
+  #Launch the text query
+  sraidlist = entrezTextQuery(key, textquery, testmode, verbose)
+
+  #Do a link between sraid and biosample
+  #Need to loop through sraidlist to avoid overwhelming Entrez
+  linklist = []
+  liststart = 0
+  listchunk = 100
+  while liststart < len(sraidlist):
+    idlist = sraidlist[liststart:liststart+listchunk]
+    samplequery = {"dbfrom" : "sra", "db" : "biosample", "id" : idlist}
+    linklist = linklist + entrezLinkQuery(key, samplequery, verbose)
+    liststart = liststart + listchunk
+
+  #Go after the sample ids
+  #Need to loop to avoid overload
+  liststart = 0
+  listchunk = 100
+  while liststart < len(linklist):
+    idlist = linklist[liststart:liststart+listchunk]
+    query = {"db" : "biosample", "id" : idlist, "retmode" : "xml"}
+    samplelist = samplelist + entrezSampleIDQuery(key, query, verbose)
   return samplelist
 
 def queryCount(service, query, key, querytype, verbose):
