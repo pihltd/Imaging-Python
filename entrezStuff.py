@@ -4,6 +4,7 @@
 import requests
 import pprint
 import xml.etree.ElementTree as et
+import sys
 
 def vPrint(doit, message):
   if doit:
@@ -189,16 +190,19 @@ def entrezTextQuery(key, query, testmode, verbose):
   querytype = "get"
   query['retmode'] = 'json'
   querycount = queryCount(service, query, key, querytype, verbose)
-  if testmode:
-    querycount = "20"
   #Get the data in chunks
   retstart = 0
   retmax = 100
+  if testmode:
+    querycount = 20
+    retmax = 20
   query['retstart'] = retstart
   query['retmax'] = retmax
   while retstart < int(querycount):
+    logstring = "Restart:\t" + str(retstart) + "\tRetmax:\t" + str(retmax) + "\tQuerycount:\t" + str(querycount) + "\n"
+    vPrint(verbose, logstring)
     results = runEntrezQuery(service, query, key, querytype, verbose)
-    idlist = idlist + results['esearchresults']['idlist']
+    idlist = idlist + results['esearchresult']['idlist']
     retstart = retstart + retmax
   return idlist
 
@@ -209,8 +213,8 @@ def entrezLinkQuery(key, query, verbose):
   querytype = "get"
   query['retmode'] = 'json'
   linkdata = runEntrezQuery(service, query, key, querytype, verbose)
-  for linkset in linkdata['linksets']:
-    for linsetdbs in linkset['linksetdbs']:
+  for linkset in linkdata['linksets']:  #linkset is an array of dictionary
+    for linksetdbs in linkset['linksetdbs']:  #linksetdbsis an array of dictionary
       for links in linksetdbs['links']:
         linklist.append(links)
   return linklist
@@ -222,19 +226,21 @@ def entrezSampleIDQuery(key, query, verbose):
   querytype = "get"
   #This has to be an XML query, so force
   query['retmode'] = 'xml'
-  sampledata = runEntrezQuery(servcie, query, key, querytype, verbose)
+  sampledata = runEntrezQuery(service, query, key, querytype, verbose)
   tree = et.fromstring(sampledata)
   for idnode in tree.findall('./BioSample/Ids/Id'):
     if idnode.get('db') == 'SRA':
       samplelist.append(idnode.text)
   return samplelist
 
-def sraText2Sample(key, searchterm,testmode, verbose):
+def sraText2Sample(key, searchterm, testmode, verbose):
   #Takes a text search term and returns a list of samples associated
   samplelist = []
   textquery = {"db" : "sra", "term" : searchterm}
   #Launch the text query
-  sraidlist = entrezTextQuery(key, textquery, testmode, verbose)
+  sraidlist = entrezTextQuery(key, textquery, True, verbose)
+  vPrint(verbose, sraidlist)
+  #sys.exit()
 
   #Do a link between sraid and biosample
   #Need to loop through sraidlist to avoid overwhelming Entrez
@@ -242,26 +248,33 @@ def sraText2Sample(key, searchterm,testmode, verbose):
   liststart = 0
   listchunk = 100
   while liststart < len(sraidlist):
+    logstring = "Liststart:\t" + str(liststart) + "\tListchunk:\t" + str(listchunk) + "\tListlength:\t" + str(len(sraidlist))  + "\n"
+    vPrint(verbose, logstring)
     idlist = sraidlist[liststart:liststart+listchunk]
     samplequery = {"dbfrom" : "sra", "db" : "biosample", "id" : idlist}
     linklist = linklist + entrezLinkQuery(key, samplequery, verbose)
     liststart = liststart + listchunk
+    logstring = "Liststart:\t" + str(liststart) + "\tListchunk:\t" + str(listchunk) + "\tListlength:\t" + str(len(sraidlist))  + "\n"
+    vPrint(verbose, logstring)
 
   #Go after the sample ids
   #Need to loop to avoid overload
   liststart = 0
   listchunk = 100
   while liststart < len(linklist):
+    logstring = "Liststart:\t" + str(liststart) + "\tListchunk:\t" + str(listchunk) + "\tListlength:\t" + str(len(sraidlist))  + "\n"
+    vPrint(verbose, logstring)
     idlist = linklist[liststart:liststart+listchunk]
     query = {"db" : "biosample", "id" : idlist, "retmode" : "xml"}
     samplelist = samplelist + entrezSampleIDQuery(key, query, verbose)
+    liststart = liststart +listchunk
   return samplelist
 
 def sraSample2Run(key, sampleid, testmode, verbose):
   srrlist = []
   #Get the biosample IDs
   samplequery = {"db" : "biosample", "term" : sampleid}
-  biosampleidlist = entreezTextQuery(key, query, testmode, verbose)
+  biosampleidlist = entrezTextQuery(key, samplequery, testmode, verbose)
 
   #Do link between biosample and sra
   linklist = []
@@ -269,17 +282,18 @@ def sraSample2Run(key, sampleid, testmode, verbose):
   listchunk = 100
   while liststart < len(biosampleidlist):
     idlist = biosampleidlist[liststart : liststart + listchunk ]
-    query = {"dbfrom" : "biosample", "db", "sra", "id" : idlist}
+    query = {"dbfrom" : "biosample", "db" : "sra", "id" : idlist}
     linklist = linklist + entrezLinkQuery(key, query, verbose)
+    liststart = liststart + listchunk
 
   #Get the run IDs
   srrlist = []
   for id in linklist:
-    srrquery = {"db" : "sra", "id", id}
+    srrquery = {"db" : "sra", "id" : id}
     rundata = runEntrezQuery("fetch", srrquery, key, "get", verbose)
     #Parse the XML
     tree = et.fromstring(rundata)
-    for idnode in tree.findall('.//EXPERIENT_PACKAGE/RUN_SET/RUN/IDENTIFIERS/PRIMARY_ID'):
+    for idnode in tree.findall('.//EXPERIMENT_PACKAGE/RUN_SET/RUN/IDENTIFIERS/PRIMARY_ID'):
       srrlist.append(idnode.text)
   return srrlist
 
