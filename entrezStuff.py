@@ -233,12 +233,12 @@ def entrezSampleIDQuery(key, query, verbose):
       samplelist.append(idnode.text)
   return samplelist
 
-def sraText2Sample(key, searchterm, testmode, verbose):
+def sraText2Sample(key, searchterm, database, testmode, verbose):
   #Takes a text search term and returns a list of samples associated
   samplelist = []
   textquery = {"db" : "sra", "term" : searchterm}
   #Launch the text query
-  sraidlist = entrezTextQuery(key, textquery, True, verbose)
+  sraidlist = entrezTextQuery(key, textquery, testmode, verbose)
   vPrint(verbose, sraidlist)
   #sys.exit()
 
